@@ -25,11 +25,8 @@ float * createBlurMask(float sigma, int * maskSizePointer) {
 
 
 int main(int argc, char ** argv) {
-    // Initialize SIPL
-    SIPL::Init(); 
-
     // Load image
-    SIPL::Image<float> * image = new SIPL::Image<float>("images/lena.jpg");
+    SIPL::Image<float> * image = new SIPL::Image<float>("images/sunset.jpg");
 
     // Create OpenCL context
     Context context = createCLContextFromArguments(argc, argv);
@@ -38,11 +35,11 @@ int main(int argc, char ** argv) {
     Program program = buildProgramFromSource(context, "gaussian_blur.cl");
     
     // Select device and create a command queue for it
-    vector<Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+    VECTOR_CLASS<Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
     CommandQueue queue = CommandQueue(context, devices[0]);
 
     // Create an OpenCL Image / texture and transfer data to the device
-    Image2D clImage = Image2D(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ImageFormat(CL_R, CL_FLOAT), image->getWidth(), image->getHeight(), 0, image->getData());
+    Image2D clImage = Image2D(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ImageFormat(CL_R, CL_FLOAT), image->getWidth(), image->getHeight(), 0, (void*)image->getData());
 
     // Create a buffer for the result
     Buffer clResult = Buffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*image->getWidth()*image->getHeight());
@@ -69,9 +66,11 @@ int main(int argc, char ** argv) {
     );
 
     // Transfer image back to host
-    float * data = image->getData();
+    float* data = new float[image->getWidth()*image->getHeight()];
     queue.enqueueReadBuffer(clResult, CL_TRUE, 0, sizeof(float)*image->getWidth()*image->getHeight(), data); 
+    image->setData(data);
 
     // Save image to disk
     image->save("images/result.jpg", "jpeg");
+    image->display();
 }
